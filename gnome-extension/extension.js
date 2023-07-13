@@ -60,8 +60,11 @@ class Extension {
         this._dbus.flush();
         this._dbus.unexport();
         delete this._dbus;
-        //this._proxy.disconnectSignal(this._signal);
-        //delete this._dbus;
+        if(this._proxy && this._signal){
+            this._proxy.disconnectSignal(this._signal);
+            delete this._proxy;
+            delete this._signal;
+        }
     }
 
     _createDbusProxy(cancellable = null, flags = Gio.DBusProxyFlags.NONE) {
