@@ -93,11 +93,15 @@ class Extension {
         });
     }
 
-    _findWindow(windowId, allWindows) {
+    _findWindow(windowId, allWindows, iter=0) {
         let win = allWindows.find(w => {
             return w.meta_window.get_title().startsWith(`wid:${windowId}:`);
         })
         if (win === undefined) {
+            log(`Unable to link ${windowId}, possibly window not ready`);
+            if(iter<2){
+                imports.mainloop.timeout_add(500, () => this._findWindow(windowId, allWindows, ++iter));
+            }
             return;
         }
         let wmId = win.meta_window.get_id();
