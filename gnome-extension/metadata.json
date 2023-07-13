@@ -1,0 +1,14 @@
+{
+  "name": "Open Browser Tabs on Active Workspace",
+  "description": "Open tabs on active workspace.",
+  "uuid": "tab-in-workspace@janhouse.lv",
+  "shell-version": [
+    "40",
+    "41",
+    "42",
+    "43",
+    "44"
+  ],
+  "version": 0.1,
+  "url": "https://github.com/janhouse/tab-in-workspace"
+}

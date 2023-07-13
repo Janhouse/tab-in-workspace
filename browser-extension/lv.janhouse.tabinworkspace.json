@@ -1,0 +1,7 @@
+{
+    "name": "lv.janhouse.tabinworkspace",
+    "description": "Host for native messaging",
+    "path": "tab-in-workspace-service.py",
+    "type": "stdio",
+    "allowed_extensions": ["tab-in-workspace@janhouse.lv"]
+}

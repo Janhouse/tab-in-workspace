@@ -1,0 +1,14 @@
+[Desktop Entry]
+Version=1.0
+Name=Tab in Workspace
+Comment=Open URL in browser on active workspace
+GenericName=Tab in Workspace
+Keywords=Internet;WWW;Browser;Web;Explorer
+Exec=xdg-browser-proxy.py %u
+Icon=web-browser-symbolic
+Terminal=false
+Type=Application
+MimeType=text/html;text/xml;application/xhtml+xml;application/vnd.mozilla.xul+xml;text/mml;x-scheme-handler/http;x-scheme-handler/https;application/x-xpinstall;application/pdf;application/json
+StartupNotify=true
+Categories=Network;WebBrowser;
+Hidden=false

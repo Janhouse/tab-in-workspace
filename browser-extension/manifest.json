@@ -1,0 +1,17 @@
+{
+  "manifest_version": 3,
+  "name": "Open tabs on active desktop",
+  "version": "0.1",
+  "description": "Provides DBUS interface used to open new tabs in current desktop/workspace on Linux on Wayland.",
+  "permissions": [
+    "nativeMessaging"
+  ],
+  "browser_specific_settings": {
+    "gecko": {
+      "id": "tab-in-workspace@janhouse.lv"
+    }
+  },
+  "background": {
+    "scripts": ["background.js"]
+  }  
+}
