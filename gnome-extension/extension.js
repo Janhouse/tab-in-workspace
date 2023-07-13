@@ -60,7 +60,7 @@ class Extension {
         this._dbus.flush();
         this._dbus.unexport();
         delete this._dbus;
-        if(this._proxy && this._signal){
+        if (this._proxy && this._signal) {
             this._proxy.disconnectSignal(this._signal);
             delete this._proxy;
             delete this._signal;
@@ -84,14 +84,10 @@ class Extension {
     }
 
     _connectSignal(proxy) {
-        log("Connected to DBUS signal.")
         this._proxy = proxy;
         this._signal = this._proxy.connectSignal('windowsAdded', (proxy, nameOwner, args) => {
-
             let allWindows = global.get_window_actors();
-
             args[0].toString().split(',').forEach(windowId => {
-                log(`Browser window added: ${windowId}`);
                 this._findWindow(windowId, allWindows);
             });
         });
@@ -102,13 +98,12 @@ class Extension {
             return w.meta_window.get_title().startsWith(`wid:${windowId}:`);
         })
         if (win === undefined) {
-            log(`Could not find window for ID ${windowId}`);
             return;
         }
         let wmId = win.meta_window.get_id();
         this._windowMap[wmId] = windowId;
         this._proxy.idLinkedRemote(windowId, function () {
-            log(`Window linked ${windowId} - ${wmId}`);
+            return;
         });
     }
 
@@ -124,6 +119,7 @@ class Extension {
     OpenUrl(url) {
         if (this._proxy == undefined) {
             logError("Unable to open URL, proxy not connected.");
+            return;
         }
         let allWindows = global.get_window_actors();
         this._removeClosedWindows(allWindows);
@@ -132,13 +128,13 @@ class Extension {
         let targetWindow = allWindows
             .filter(w => w.meta_window.get_id() in this._windowMap) // Filter only browser windows
             .find(w => w.meta_window.located_on_workspace(global.workspaceManager.get_active_workspace())); // Find one in active workspace
-        log(`Found target window: ${targetWindow.meta_window.get_id()}`);
+
         if (targetWindow !== undefined) {
             winId = this._windowMap[targetWindow.meta_window.get_id()];
         }
 
         this._proxy.openUrlRemote(winId, url, function () {
-            print(`Opening tab in window ID ${winId}`)
+            return;
         });
     }
 
