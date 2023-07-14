@@ -95,6 +95,9 @@ class Extension {
 
     _findWindow(windowId, allWindows, iter=0) {
         let win = allWindows.find(w => {
+            if(w.meta_window.get_title()==null){
+                return false;
+            }
             return w.meta_window.get_title().startsWith(`wid:${windowId}:`);
         })
         if (win === undefined) {
@@ -138,6 +141,8 @@ class Extension {
         }
 
         this._proxy.openUrlRemote(winId, url, function () {
+            targetWindow.meta_window.activate(0); // Raises, makes active
+            //targetWindow.meta_window.activate(1); // Keeps in background, notifies user
             return;
         });
     }
