@@ -42,6 +42,9 @@ def handleBrowserMessages(channel, sender=None):
   match message['action']:
       case "windowRemoved":
         handler.windowIds.remove(message['windowId'])
+  match message['action']:
+      case "windowFocused":
+        handler.windowFocused(message['windowId'])
   return True
 
 class BrowserHandler(object):
@@ -58,6 +61,9 @@ class BrowserHandler(object):
         <signal name='windowsAdded'>
           <arg type='at' name='windowIds' direction='out' />
         </signal>
+        <signal name='windowFocused'>
+          <arg type='t' name='windowId' direction='out' />
+        </signal>
         <method name='getAllWindows'>
           <arg type='at' name='windowIds' direction='out'/>
         </method>
@@ -68,6 +74,7 @@ class BrowserHandler(object):
   windowIds = []
 
   windowsAdded = signal()
+  windowFocused = signal()
 
   def openUrl(self, windowId, url):
     message = {

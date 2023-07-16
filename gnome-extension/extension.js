@@ -45,6 +45,9 @@ const BROWSER_INTERFACE = `
   <signal name='windowsAdded'>
     <arg type='at' name='windowIds' direction='out' />
   </signal>
+  <signal name='windowFocused'>
+    <arg type='t' name='windowId' direction='out' />
+  </signal>
   <method name='getAllWindows'>
     <arg type='at' name='windowIds' direction='out'/>
   </method>
@@ -66,10 +69,16 @@ class Extension {
         this._dbus.flush();
         this._dbus.unexport();
         delete this._dbus;
-        if (this._proxy && this._signal) {
-            this._proxy.disconnectSignal(this._signal);
+        if (this._proxy) {
+            if (this._added_signal) {
+                this._proxy.disconnectSignal(this._added_signal);
+                delete this._added_signal;
+            }
+            if (this._focused_signal) {
+                this._proxy.disconnectSignal(this._focused_signal);
+                delete this._focused_signal;
+            }
             delete this._proxy;
-            delete this._signal;
         }
         this._timers.forEach(timerId => GLib.Source.remove(timerId));
     }
@@ -83,8 +92,11 @@ class Extension {
                 if (error === null) {
                     this._proxy = proxy;
                     global.prox = this._proxy;
-                    this._signal = this._proxy.connectSignal('windowsAdded', (p, nameOwner, args) => {
-                        this._windowsAdded(args);
+                    this._added_signal = this._proxy.connectSignal('windowsAdded', (p, nameOwner, args) => {
+                        this._windowsAdded(args[0]);
+                    });
+                    this._focused_signal = this._proxy.connectSignal('windowFocused', (p, nameOwner, args) => {
+                        this._windowFocused(args[0]);
                     });
                     this._proxy.getAllWindowsAsync((returnValue, errorObj, fdList) => {
                         if (errorObj === null) {
@@ -102,9 +114,15 @@ class Extension {
         );
     }
 
-    _windowsAdded(args) {
+    _windowFocused(windowId) {
+        log(`Window focused: ${windowId}`);
+        let w = this._windowMap.find((w) => w == windowId);
+        log(`Found window: ${w}`);
+    }
+
+    _windowsAdded(wList) {
         let allWindows = global.get_window_actors();
-        args[0].toString().split(',').forEach(windowId => {
+        wList.toString().split(',').forEach(windowId => {
             this._findWindow(windowId, allWindows);
         });
     }
