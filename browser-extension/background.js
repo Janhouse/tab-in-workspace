@@ -8,21 +8,16 @@ nativePort.onDisconnect.addListener((p) => {
 
 nativePort.onMessage.addListener(nativeMessage);
 browser.windows.onCreated.addListener(windowAdded);
-browser.windows.onRemoved.addListener(windowRemoved);
 
-browser.windows.getAll().then(wins => {
-  let ids = [];
-  let pr = wins.forEach(w => {
-    ids.push(w.id);
-  });
-  windowsAdded(ids);
-});
+initiate();
 
-async function windowRemoved(windowId) {
-  console.log(`Window removed: ${windowId}`);
-  nativePort.postMessage({
-    action: "windowRemoved",
-    windowId: windowId
+async function initiate(){
+  browser.windows.getAll().then(wins => {
+    let ids = [];
+    let pr = wins.forEach(w => {
+      ids.push(w.id);
+    });
+    windowsAdded(ids);
   });
 }
 
@@ -75,6 +70,9 @@ async function nativeMessage(message) {
       break
     case 'idLinked':
       idLinked(parseInt(message.windowId))
+      break
+    case 'reset':
+      initiate();
       break
   }
 }

@@ -1,7 +1,7 @@
 {
   "manifest_version": 3,
   "name": "Open tabs on active desktop",
-  "version": "0.5",
+  "version": "0.7",
   "description": "Provides DBUS interface used to open new tabs in current desktop/workspace on Linux on Wayland.",
   "permissions": [
     "nativeMessaging"

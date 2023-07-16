@@ -36,12 +36,7 @@ def handleBrowserMessages(channel, sender=None):
   match message['action']:
       case "windowsAdded":
         wIds = message['windowIds']
-        for id in wIds:
-          handler.windowIds.append(id)
         handler.windowsAdded(wIds)
-  match message['action']:
-      case "windowRemoved":
-        handler.windowIds.remove(message['windowId'])
   return True
 
 class BrowserHandler(object):
@@ -58,14 +53,10 @@ class BrowserHandler(object):
         <signal name='windowsAdded'>
           <arg type='at' name='windowIds' direction='out' />
         </signal>
-        <method name='getAllWindows'>
-          <arg type='at' name='windowIds' direction='out'/>
-        </method>
+        <method name='reset' />
       </interface>
     </node>
   """
-
-  windowIds = []
 
   windowsAdded = signal()
 
@@ -84,8 +75,11 @@ class BrowserHandler(object):
     }
     sendMessageToBrowser(encodeBrowserMessage(message))
 
-  def getAllWindows(self):
-    return self.windowIds
+  def reset(self):
+    message = {
+      'action': 'reset'
+    }
+    sendMessageToBrowser(encodeBrowserMessage(message))
 
 #sys.stdin = sys.stdin.detach()
 #sys.stdout = sys.stdout.detach()

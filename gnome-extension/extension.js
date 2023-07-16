@@ -45,9 +45,7 @@ const BROWSER_INTERFACE = `
   <signal name='windowsAdded'>
     <arg type='at' name='windowIds' direction='out' />
   </signal>
-  <method name='getAllWindows'>
-    <arg type='at' name='windowIds' direction='out'/>
-  </method>
+  <method name='reset' />
 </interface>
 </node>`;
 
@@ -94,13 +92,7 @@ class Extension {
                     this._added_signal = this._proxy.connectSignal('windowsAdded', (p, nameOwner, args) => {
                         this._windowsAdded(args[0]);
                     });
-                    this._proxy.getAllWindowsAsync((returnValue, errorObj, fdList) => {
-                        if (errorObj === null) {
-                            this._windowsAdded(returnValue);
-                        } else {
-                            logError(errorObj);
-                        }
-                    });
+                    this._proxy.resetSync();
                 } else {
                     logError(error, 'Failed constructing proxy');
                 }
