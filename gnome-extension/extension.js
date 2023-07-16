@@ -27,6 +27,7 @@ const WM_INTERFACE = `
    <interface name="org.gnome.Shell.Extensions.TabInWorkspace">
       <method name="OpenUrl">
          <arg type="s" direction="in" name="url" />
+         <arg type="b" direction="out" name="result" />
       </method>
    </interface>
 </node>`;
@@ -152,7 +153,7 @@ class Extension {
     OpenUrl(url) {
         if (this._proxy == undefined) {
             logError("Unable to open URL, proxy not connected.");
-            return;
+            return false;
         }
         let allWindows = global.get_window_actors();
         this._removeClosedWindows(allWindows);
@@ -164,6 +165,8 @@ class Extension {
 
         if (targetWindow !== undefined) {
             winId = this._windowMap[targetWindow.meta_window.get_id()];
+        }else{
+            return false;
         }
 
         this._proxy.openUrlRemote(winId, url, function () {
