@@ -18,7 +18,8 @@
 
 /* exported init */
 const {
-    Gio
+    Gio,
+    GLib
 } = imports.gi;
 
 const WM_INTERFACE = `
@@ -43,6 +44,9 @@ const BROWSER_INTERFACE = `
   <signal name='windowsAdded'>
     <arg type='at' name='windowIds' direction='out' />
   </signal>
+  <method name='getAllWindows'>
+    <arg type='at' name='windowIds' direction='out'/>
+  </method>
 </interface>
 </node>`;
 
@@ -54,6 +58,7 @@ class Extension {
         this.BrowserProxy = Gio.DBusProxy.makeProxyWrapper(BROWSER_INTERFACE);
         this._createDbusProxy();
         this._windowMap = {};
+        this._timers = [];
     }
 
     disable() {
@@ -65,6 +70,7 @@ class Extension {
             delete this._proxy;
             delete this._signal;
         }
+        this._timers.forEach(timerId => GLib.Source.remove(timerId));
     }
 
     _createDbusProxy(cancellable = null, flags = Gio.DBusProxyFlags.NONE) {
@@ -73,45 +79,65 @@ class Extension {
             'lv.janhouse.TabInWorkspace.Browser',
             '/lv/janhouse/TabInWorkspace/Browser',
             (proxy, error) => {
-                if (error === null)
-                    this._connectSignal(proxy);
-                else
+                if (error === null) {
+                    this._proxy = proxy;
+                    global.prox = this._proxy;
+                    this._signal = this._proxy.connectSignal('windowsAdded', (p, nameOwner, args) => {
+                        this._windowsAdded(args);
+                    });
+                    this._proxy.getAllWindowsAsync((returnValue, errorObj, fdList) => {
+                        if (errorObj === null) {
+                            this._windowsAdded(returnValue);
+                        } else {
+                            logError(errorObj);
+                        }
+                    });
+                } else {
                     logError(error, 'Failed constructing proxy');
+                }
             },
             cancellable,
             flags
         );
     }
 
-    _connectSignal(proxy) {
-        this._proxy = proxy;
-        this._signal = this._proxy.connectSignal('windowsAdded', (proxy, nameOwner, args) => {
-            let allWindows = global.get_window_actors();
-            args[0].toString().split(',').forEach(windowId => {
-                this._findWindow(windowId, allWindows);
-            });
+    _windowsAdded(args) {
+        let allWindows = global.get_window_actors();
+        args[0].toString().split(',').forEach(windowId => {
+            this._findWindow(windowId, allWindows);
         });
     }
 
-    _findWindow(windowId, allWindows, iter=0) {
+    _findWindow(windowId, allWindows, iter = 0) {
+        if (Object.values(this._windowMap).includes(windowId)) {
+            this._proxy.idLinkedRemote(windowId, function () {
+                return;
+            });
+            return false;
+        }
+
         let win = allWindows.find(w => {
-            if(w.meta_window.get_title()==null){
+            if (w.meta_window.get_title() == null) {
                 return false;
             }
             return w.meta_window.get_title().startsWith(`wid:${windowId}:`);
         })
+
         if (win === undefined) {
             log(`Unable to link ${windowId}, possibly window not ready`);
-            if(iter<2){
-                imports.mainloop.timeout_add(500, () => this._findWindow(windowId, allWindows, ++iter));
+            if (iter < 2) {
+                let loop = imports.mainloop.timeout_add(500, () => this._findWindow(windowId, allWindows, ++iter));
+                this._timers.push(loop);
             }
-            return;
+            return false;
         }
+
         let wmId = win.meta_window.get_id();
         this._windowMap[wmId] = windowId;
         this._proxy.idLinkedRemote(windowId, function () {
             return;
         });
+        return false;
     }
 
     _removeClosedWindows(allWindows) {
@@ -146,7 +172,6 @@ class Extension {
             return;
         });
     }
-
 }
 
 function init() {

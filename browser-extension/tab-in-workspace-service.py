@@ -9,6 +9,7 @@ from gi.repository import GLib
 from pydbus import SessionBus
 from pydbus.generic import signal
 
+
 def getMessage():
   rawLength = sys.stdin.buffer.read(4)
   if len(rawLength) == 0:
@@ -28,14 +29,19 @@ def sendMessageToBrowser(encodedMessage):
   sys.stdout.buffer.flush()
 
 def handleBrowserMessages(channel, sender=None):
-  global emit
+  global handler
   message = getMessage()
   if 'action' not in message:
     return False  
   match message['action']:
       case "windowsAdded":
         wIds = message['windowIds']
-        emit.windowsAdded(wIds)
+        for id in wIds:
+          handler.windowIds.append(id)
+        handler.windowsAdded(wIds)
+  match message['action']:
+      case "windowRemoved":
+        handler.windowIds.remove(message['windowId'])
   return True
 
 class BrowserHandler(object):
@@ -52,9 +58,14 @@ class BrowserHandler(object):
         <signal name='windowsAdded'>
           <arg type='at' name='windowIds' direction='out' />
         </signal>
+        <method name='getAllWindows'>
+          <arg type='at' name='windowIds' direction='out'/>
+        </method>
       </interface>
     </node>
   """
+
+  windowIds = []
 
   windowsAdded = signal()
 
@@ -73,6 +84,9 @@ class BrowserHandler(object):
     }
     sendMessageToBrowser(encodeBrowserMessage(message))
 
+  def getAllWindows(self):
+    return self.windowIds
+
 #sys.stdin = sys.stdin.detach()
 #sys.stdout = sys.stdout.detach()
 loop = GLib.MainLoop()
@@ -80,8 +94,8 @@ channel = GLib.IOChannel.unix_new(sys.stdin.fileno())
 GLib.io_add_watch(channel, GLib.IOCondition.IN, handleBrowserMessages)
 GLib.io_add_watch(channel, GLib.IOCondition.HUP, lambda *_: loop.quit())
 bus = SessionBus()
-global emit
-emit = BrowserHandler()
-pub = bus.publish('lv.janhouse.TabInWorkspace.Browser', emit)
+global handler
+handler = BrowserHandler()
+pub = bus.publish('lv.janhouse.TabInWorkspace.Browser', handler)
 
 loop.run()
