@@ -165,15 +165,16 @@ class Extension {
 
         if (targetWindow !== undefined) {
             winId = this._windowMap[targetWindow.meta_window.get_id()];
-        }else{
-            return false;
         }
 
         this._proxy.openUrlRemote(winId, url, function () {
-            targetWindow.meta_window.activate(0); // Raises, makes active
-            //targetWindow.meta_window.activate(1); // Keeps in background, notifies user
+            if (winId != 0) {
+                targetWindow.meta_window.activate(0); // Raises, makes active
+                //targetWindow.meta_window.activate(1); // Keeps in background, notifies user
+            }
             return;
         });
+        return true;
     }
 }
 

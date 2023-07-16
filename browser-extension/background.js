@@ -48,6 +48,13 @@ async function notifyWindowManager(windowIds) {
 }
 
 async function openUrl(url, windowId) {
+  if (windowId == 0) {
+    browser.windows.create({
+      url: url,
+    });
+    return;
+  }
+
   browser.tabs.create({
     url: url,
     windowId: windowId,
