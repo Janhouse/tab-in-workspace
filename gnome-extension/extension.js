@@ -60,6 +60,7 @@ class Extension {
         this._createDbusProxy();
         this._windowMap = {};
         this._timers = [];
+        this._onWindowDestroyHandler = global.window_manager.connect('destroy', this.onDestroyWindow.bind(this));
     }
 
     disable() {
@@ -74,6 +75,11 @@ class Extension {
             delete this._proxy;
         }
         this._timers.forEach(timerId => GLib.Source.remove(timerId));
+        global.window_manager.disconnect(this._onWindowDestroyHandler);
+    }
+
+    onDestroyWindow(_shellwm, w){
+        delete this._windowMap[w.meta_window.get_id()];
     }
 
     _createDbusProxy(cancellable = null, flags = Gio.DBusProxyFlags.NONE) {
@@ -105,6 +111,7 @@ class Extension {
     }
 
     _windowsAdded(wList) {
+        log(`_windowsAdded added ${wList}`);
         let allWindows = global.get_window_actors();
         wList.toString().split(',').forEach(windowId => {
             this._findWindow(windowId, allWindows);
@@ -143,22 +150,12 @@ class Extension {
         return false;
     }
 
-    _removeClosedWindows(allWindows) {
-        this._windowMap = Object.keys(this._windowMap)
-            .filter(key => allWindows.find(w => w.meta_window.get_id() == key))
-            .reduce((obj, key) => {
-                obj[key] = this._windowMap[key];
-                return obj;
-            }, {});
-    }
-
     OpenUrl(url) {
         if (this._proxy == undefined) {
             logError("Unable to open URL, proxy not connected.");
             return false;
         }
         let allWindows = global.get_window_actors();
-        this._removeClosedWindows(allWindows);
 
         let winId = 0;
         let targetWindow = allWindows.slice().reverse()
