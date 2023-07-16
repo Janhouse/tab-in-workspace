@@ -9,7 +9,6 @@ nativePort.onDisconnect.addListener((p) => {
 nativePort.onMessage.addListener(nativeMessage);
 browser.windows.onCreated.addListener(windowAdded);
 browser.windows.onRemoved.addListener(windowRemoved);
-browser.windows.onFocusChanged.addListener(windowFocused)
 
 browser.windows.getAll().then(wins => {
   let ids = [];
@@ -23,15 +22,6 @@ async function windowRemoved(windowId) {
   console.log(`Window removed: ${windowId}`);
   nativePort.postMessage({
     action: "windowRemoved",
-    windowId: windowId
-  });
-}
-
-async function windowFocused(windowId) {
-  console.log(`Window focused: ${windowId}`);
-  if (windowId <= 0) return;
-  nativePort.postMessage({
-    action: "windowFocused",
     windowId: windowId
   });
 }

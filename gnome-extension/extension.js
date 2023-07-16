@@ -45,9 +45,6 @@ const BROWSER_INTERFACE = `
   <signal name='windowsAdded'>
     <arg type='at' name='windowIds' direction='out' />
   </signal>
-  <signal name='windowFocused'>
-    <arg type='t' name='windowId' direction='out' />
-  </signal>
   <method name='getAllWindows'>
     <arg type='at' name='windowIds' direction='out'/>
   </method>
@@ -74,10 +71,6 @@ class Extension {
                 this._proxy.disconnectSignal(this._added_signal);
                 delete this._added_signal;
             }
-            if (this._focused_signal) {
-                this._proxy.disconnectSignal(this._focused_signal);
-                delete this._focused_signal;
-            }
             delete this._proxy;
         }
         this._timers.forEach(timerId => GLib.Source.remove(timerId));
@@ -95,9 +88,6 @@ class Extension {
                     this._added_signal = this._proxy.connectSignal('windowsAdded', (p, nameOwner, args) => {
                         this._windowsAdded(args[0]);
                     });
-                    this._focused_signal = this._proxy.connectSignal('windowFocused', (p, nameOwner, args) => {
-                        this._windowFocused(args[0]);
-                    });
                     this._proxy.getAllWindowsAsync((returnValue, errorObj, fdList) => {
                         if (errorObj === null) {
                             this._windowsAdded(returnValue);
@@ -112,12 +102,6 @@ class Extension {
             cancellable,
             flags
         );
-    }
-
-    _windowFocused(windowId) {
-        log(`Window focused: ${windowId}`);
-        let w = this._windowMap.find((w) => w == windowId);
-        log(`Found window: ${w}`);
     }
 
     _windowsAdded(wList) {
@@ -177,7 +161,7 @@ class Extension {
         this._removeClosedWindows(allWindows);
 
         let winId = 0;
-        let targetWindow = allWindows
+        let targetWindow = allWindows.slice().reverse()
             .filter(w => w.meta_window.get_id() in this._windowMap) // Filter only browser windows
             .find(w => w.meta_window.located_on_workspace(global.workspaceManager.get_active_workspace())); // Find one in active workspace
 
