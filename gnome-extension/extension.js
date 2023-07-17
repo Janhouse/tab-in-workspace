@@ -73,6 +73,7 @@ class Extension {
             delete this._proxy;
         }
         this._timers.forEach(timerId => GLib.Source.remove(timerId));
+        this._timers = [];
         global.window_manager.disconnect(this._onWindowDestroyHandler);
     }
 

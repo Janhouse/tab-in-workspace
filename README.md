@@ -7,26 +7,22 @@ https://github.com/Janhouse/tab-in-workspace/assets/1036439/28fd8e2f-e067-4c4d-a
 
 It consists of:
 * **browser extension**, 
-* browser **native messaging** program (written in Python),
+* browser **native messaging** program,
 * **Gnome extension** to handle window management,
-* **xdg handler program** for web links (written in Python)
+* **xdg handler program** for web links,
 * **desktop file** to allow setting the handler as "default browser"
 
 Initial implementation is made for Firefox and Gnome on wayland, but it is possible to make it work with
  other Wayland and X11 desktop environments while keeping most parts shared.
 
-## Dependencies
-
-Python 3, python-pydbus
-
 ## Setup guide
 
 Until I provide proper packaging, you have to set it up manually:
 
-* Copy `browser-extension/lv.janhouse.tabinworkspace.json` to `~/.mozilla/native-messaging-hosts/` and adjust the path in it to `tab-in-workspace-service.py`.
+* Copy `browser-extension/lv.janhouse.tabinworkspace.json` to `~/.mozilla/native-messaging-hosts/` and adjust the path in it to `tab-in-workspace-service.js`.
 * Install Browser extension https://addons.mozilla.org/en-US/firefox/addon/open-on-active-desktop/
 * Install gnome-shell extension `make build && make install` and restart gnome-shell.
-* Copy `gnome-extension/tab-in-workspace.desktop` to `~/.local/share/applications/` and adjust the path in it to `xdg-browser-proxy.py`
+* Copy `gnome-extension/tab-in-workspace.desktop` to `~/.local/share/applications/` and adjust the path in it to `xdg-browser-proxy.js`
 * Set `tab-in-workspace` as the default browser in `~/.config/mimeapps.list`:
 ```
 [Added Associations]
