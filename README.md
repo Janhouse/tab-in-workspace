@@ -2,6 +2,8 @@
 
 This is an extension which utilizes D-Bus message bus on Linux desktop to handle opening of web links on the active
  workspace/desktop, instead of browser default, which is usually the last window on which a new tab was opened.
+ 
+https://github.com/Janhouse/tab-in-workspace/assets/1036439/28fd8e2f-e067-4c4d-a523-d9ef10e833bd
 
 It consists of:
 * **browser extension**, 
