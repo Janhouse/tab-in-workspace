@@ -76,7 +76,7 @@ class Extension {
         global.window_manager.disconnect(this._onWindowDestroyHandler);
     }
 
-    _onDestroyWindow(_shellwm, w){
+    _onDestroyWindow(_shellwm, w) {
         delete this._windowMap[w.meta_window.get_id()];
     }
 
@@ -158,14 +158,17 @@ class Extension {
             winId = this._windowMap[targetWindow.meta_window.get_id()];
         }
 
-        this._proxy.openUrlRemote(winId, url, function () {
+        try {
+            this._proxy.openUrlSync(winId, url);
             if (winId != 0) {
                 targetWindow.meta_window.activate(0); // Raises, makes active
                 //targetWindow.meta_window.activate(1); // Keeps in background, notifies user
             }
-            return;
-        });
-        return true;
+            return true;
+        } catch (error) {
+            log(`Unable to open URL through d-bus: ${error}`);
+            return false;
+        }
     }
 }
 
