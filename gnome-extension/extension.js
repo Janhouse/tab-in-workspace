@@ -58,7 +58,7 @@ class Extension {
         this._createDbusProxy();
         this._windowMap = {};
         this._timers = [];
-        this._onWindowDestroyHandler = global.window_manager.connect('destroy', this.onDestroyWindow.bind(this));
+        this._onWindowDestroyHandler = global.window_manager.connect('destroy', this._onDestroyWindow.bind(this));
     }
 
     disable() {
@@ -76,7 +76,7 @@ class Extension {
         global.window_manager.disconnect(this._onWindowDestroyHandler);
     }
 
-    onDestroyWindow(_shellwm, w){
+    _onDestroyWindow(_shellwm, w){
         delete this._windowMap[w.meta_window.get_id()];
     }
 

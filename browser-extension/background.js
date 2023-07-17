@@ -1,5 +1,9 @@
 let nativePort = browser.runtime.connectNative('lv.janhouse.tabinworkspace')
 
+browser.runtime.onStartup.addListener(() => {
+  initiate();
+});
+
 nativePort.onDisconnect.addListener((p) => {
   if (p.error) {
     console.log(`Disconnected due to an error: ${p.error.message}`);
@@ -9,9 +13,8 @@ nativePort.onDisconnect.addListener((p) => {
 nativePort.onMessage.addListener(nativeMessage);
 browser.windows.onCreated.addListener(windowAdded);
 
-initiate();
-
 async function initiate(){
+  console.log(`Init`);
   browser.windows.getAll().then(wins => {
     let ids = [];
     let pr = wins.forEach(w => {
