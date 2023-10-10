@@ -17,10 +17,9 @@
  */
 
 /* exported init */
-const {
-    Gio,
-    GLib
-} = imports.gi;
+
+import GLib from 'gi://GLib';
+import Gio from 'gi://Gio';
 
 const WM_INTERFACE = `
 <node>
@@ -49,7 +48,7 @@ const BROWSER_INTERFACE = `
 </interface>
 </node>`;
 
-class Extension {
+export default class Extension {
     enable() {
         this._dbus = Gio.DBusExportedObject.wrapJSObject(WM_INTERFACE, this);
         this._dbus.export(Gio.DBus.session, '/org/gnome/Shell/Extensions/TabInWorkspace');
@@ -95,7 +94,7 @@ class Extension {
                     });
                     this._proxy.resetSync();
                 } else {
-                    logError(error, 'Failed constructing proxy');
+                    log.error(error, 'Failed constructing proxy');
                 }
             },
             cancellable,
@@ -104,7 +103,7 @@ class Extension {
     }
 
     _windowsAdded(wList) {
-        log(`_windowsAdded added ${wList}`);
+        console.info(`_windowsAdded added ${wList}`);
         let allWindows = global.get_window_actors();
         wList.toString().split(',').forEach(windowId => {
             this._findWindow(windowId, allWindows);
@@ -127,9 +126,9 @@ class Extension {
         })
 
         if (win === undefined) {
-            log(`Unable to link ${windowId}, possibly window not ready`);
+            console.info(`Unable to link ${windowId}, possibly window not ready`);
             if (iter < 2) {
-                let loop = imports.mainloop.timeout_add(500, () => this._findWindow(windowId, allWindows, ++iter));
+                let loop = GLib.timeout_add(GLib.PRIORITY_DEFAULT, 500, () => this._findWindow(windowId, allWindows, ++iter));
                 this._timers.push(loop);
             }
             return false;
@@ -145,7 +144,7 @@ class Extension {
 
     OpenUrl(url) {
         if (this._proxy == undefined) {
-            logError("Unable to open URL, proxy not connected.");
+            log.error("Unable to open URL, proxy not connected.");
             return false;
         }
         let allWindows = global.get_window_actors();
@@ -167,12 +166,8 @@ class Extension {
             }
             return true;
         } catch (error) {
-            log(`Unable to open URL through d-bus: ${error}`);
+            console.error(`Unable to open URL through d-bus: ${error}`);
             return false;
         }
     }
-}
-
-function init() {
-    return new Extension();
 }
