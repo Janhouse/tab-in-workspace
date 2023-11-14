@@ -21,7 +21,7 @@ Until I provide proper packaging, you have to set it up manually:
 
 * Copy `browser-extension/lv.janhouse.tabinworkspace.json` to `~/.mozilla/native-messaging-hosts/` and adjust the path in it to `tab-in-workspace-service.js`.
 * Install Browser extension https://addons.mozilla.org/en-US/firefox/addon/open-on-active-desktop/
-* Install gnome-shell extension `make build && make install` and restart gnome-shell.
+* Install gnome-shell extension from extensions site: https://extensions.gnome.org/extension/6133/open-browser-tabs-on-active-workspace/ 
 * Copy `gnome-extension/tab-in-workspace.desktop` to `~/.local/share/applications/` and adjust the path in it to `xdg-browser-proxy.js`
 * Set `tab-in-workspace` as the default browser in `~/.config/mimeapps.list`:
 ```
@@ -32,3 +32,8 @@ x-scheme-handler/https=tab-in-workspace.desktop;firefox.desktop;
 x-scheme-handler/http=tab-in-workspace.desktop
 x-scheme-handler/https=tab-in-workspace.desktop
 ```
+
+
+## Privacy policy
+
+This extension does not collect or store any personal data.
