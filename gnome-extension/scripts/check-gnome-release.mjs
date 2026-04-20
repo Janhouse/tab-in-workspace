@@ -16,7 +16,7 @@
 //
 // Exit code is always 0 so the workflow can read outputs even when no bump.
 
-import {readFileSync, writeFileSync, appendFileSync} from 'node:fs';
+import {appendFileSync, readFileSync, writeFileSync} from 'node:fs';
 import {dirname, resolve} from 'node:path';
 import {fileURLToPath} from 'node:url';
 
@@ -133,7 +133,7 @@ async function main() {
 
     const metadata = JSON.parse(readFileSync(METADATA_PATH, 'utf8'));
     const currentMax = Math.max(
-        ...(metadata['shell-version'] || []).map(v => parseInt(v, 10)).filter(v => !isNaN(v)),
+        ...(metadata['shell-version'] || []).map(v => parseInt(v, 10)).filter(v => !Number.isNaN(v)),
     );
 
     const today = new Date().toISOString().slice(0, 10);
