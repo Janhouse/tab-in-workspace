@@ -15,5 +15,18 @@ version:
 test: install
 	SHELL_DEBUG=backtrace-warnings dbus-run-session -- gnome-shell --nested --wayland
 
+pack:
+	gnome-extensions pack --force --out-dir . \
+		--extra-source=tab-in-workspace-service.js \
+		--extra-source=tab-in-workspace.desktop \
+		--extra-source=xdg-browser-proxy.js \
+		--extra-source=lv.janhouse.tabinworkspace.json \
+		.
+
+lint:
+	npm ci --legacy-peer-deps
+	npx eslint extension.js
+	npx tsc --noEmit
+
 clean:
 	rm "tab-in-workspace@janhouse.lv-gnome-v$(version).zip"

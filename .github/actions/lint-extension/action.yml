@@ -1,0 +1,58 @@
+name: Lint GNOME extension
+description: Run ESLint, tsc --noEmit, and gnome-extensions pack on the GNOME extension.
+outputs:
+  lint-output:
+    description: Path to the captured lint output log
+    value: /tmp/lint-output.txt
+runs:
+  using: composite
+  steps:
+    - name: Install npm dependencies
+      shell: bash
+      working-directory: gnome-extension
+      run: |
+        : > /tmp/lint-output.txt
+        # --legacy-peer-deps is required because @girs/* packages over-pin
+        # peer dependencies to prerelease tags that no longer exist.
+        if [ -f package-lock.json ]; then
+          npm ci --legacy-peer-deps --no-audit --no-fund 2>&1 | tee -a /tmp/lint-output.txt
+        else
+          npm install --legacy-peer-deps --no-audit --no-fund 2>&1 | tee -a /tmp/lint-output.txt
+        fi
+
+    - name: ESLint
+      shell: bash
+      working-directory: gnome-extension
+      run: |
+        echo "::group::ESLint" | tee -a /tmp/lint-output.txt
+        npx eslint extension.js 2>&1 | tee -a /tmp/lint-output.txt
+        echo "::endgroup::" | tee -a /tmp/lint-output.txt
+
+    - name: TypeScript API check
+      shell: bash
+      working-directory: gnome-extension
+      run: |
+        echo "::group::tsc --noEmit" | tee -a /tmp/lint-output.txt
+        npx tsc --noEmit 2>&1 | tee -a /tmp/lint-output.txt
+        echo "::endgroup::" | tee -a /tmp/lint-output.txt
+
+    - name: Install gnome-extensions tool
+      shell: bash
+      run: |
+        sudo apt-get update
+        sudo apt-get install -y --no-install-recommends gnome-shell
+
+    - name: gnome-extensions pack (schema + structure validation)
+      shell: bash
+      working-directory: gnome-extension
+      run: |
+        echo "::group::gnome-extensions pack" | tee -a /tmp/lint-output.txt
+        mkdir -p /tmp/pack
+        gnome-extensions pack --force --out-dir /tmp/pack \
+          --extra-source=tab-in-workspace-service.js \
+          --extra-source=tab-in-workspace.desktop \
+          --extra-source=xdg-browser-proxy.js \
+          --extra-source=lv.janhouse.tabinworkspace.json \
+          . 2>&1 | tee -a /tmp/lint-output.txt
+        ls -la /tmp/pack | tee -a /tmp/lint-output.txt
+        echo "::endgroup::" | tee -a /tmp/lint-output.txt

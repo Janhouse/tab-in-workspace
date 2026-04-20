@@ -1,0 +1,101 @@
+name: Upload to extensions.gnome.org
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - 'gnome-extension/metadata.json'
+  workflow_dispatch:
+    inputs:
+      force:
+        description: 'Upload even if version did not change'
+        type: boolean
+        default: false
+
+permissions:
+  contents: write
+
+jobs:
+  upload:
+    runs-on: ubuntu-latest
+    environment: build
+    steps:
+      - uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5  # v4
+        with:
+          fetch-depth: 2
+
+      - name: Detect version bump
+        id: bump
+        run: |
+          curr=$(jq -r .version gnome-extension/metadata.json)
+          echo "version=$curr" >> "$GITHUB_OUTPUT"
+          if [ "${{ github.event_name }}" = "workflow_dispatch" ] && [ "${{ inputs.force }}" = "true" ]; then
+            echo "bumped=true" >> "$GITHUB_OUTPUT"
+            echo "Manual dispatch with force=true — proceeding regardless of version."
+            exit 0
+          fi
+          prev=$(git show HEAD~1:gnome-extension/metadata.json 2>/dev/null | jq -r .version || echo null)
+          if [ "$prev" != "$curr" ]; then
+            echo "bumped=true" >> "$GITHUB_OUTPUT"
+            echo "version changed: $prev -> $curr"
+          else
+            echo "bumped=false" >> "$GITHUB_OUTPUT"
+            echo "version unchanged ($curr), skipping upload"
+          fi
+
+      - name: Check EGO credentials
+        if: steps.bump.outputs.bumped == 'true'
+        id: creds
+        env:
+          EGO_USERNAME: ${{ secrets.EGO_USERNAME }}
+          EGO_PASSWORD: ${{ secrets.EGO_PASSWORD }}
+        run: |
+          if [ -n "$EGO_USERNAME" ] && [ -n "$EGO_PASSWORD" ]; then
+            echo "have_creds=true" >> "$GITHUB_OUTPUT"
+          else
+            echo "have_creds=false" >> "$GITHUB_OUTPUT"
+            echo "::warning::EGO_USERNAME/EGO_PASSWORD secrets not set; will build zip but skip upload."
+          fi
+
+      # Using murar8/gnome-extensions-action pinned to v0.1.1 commit SHA.
+      # The action itself references a mutable ghcr.io :latest image tag, so
+      # the effective pin is: action SHA + ghcr.io registry trust. If stricter
+      # supply-chain control is needed later, fork the action and replace
+      # :latest with a @sha256 digest in the fork's action.yml.
+      - name: Build zip (no upload)
+        if: steps.bump.outputs.bumped == 'true' && steps.creds.outputs.have_creds == 'false'
+        uses: murar8/gnome-extensions-action@1e6014212e6f79c8c6cdd6193025a158273b3293  # v0.1.1
+        with:
+          source-dir: gnome-extension
+          output-dir: dist
+          extra-source: |
+            tab-in-workspace-service.js
+            tab-in-workspace.desktop
+            xdg-browser-proxy.js
+            lv.janhouse.tabinworkspace.json
+          force: "true"
+
+      - name: Build zip and upload to extensions.gnome.org
+        if: steps.bump.outputs.bumped == 'true' && steps.creds.outputs.have_creds == 'true'
+        uses: murar8/gnome-extensions-action@1e6014212e6f79c8c6cdd6193025a158273b3293  # v0.1.1
+        with:
+          source-dir: gnome-extension
+          output-dir: dist
+          extra-source: |
+            tab-in-workspace-service.js
+            tab-in-workspace.desktop
+            xdg-browser-proxy.js
+            lv.janhouse.tabinworkspace.json
+          force: "true"
+          username: ${{ secrets.EGO_USERNAME }}
+          password: ${{ secrets.EGO_PASSWORD }}
+          accept-tos: "true"
+
+      - name: Attach zip to GitHub release
+        if: steps.bump.outputs.bumped == 'true'
+        uses: softprops/action-gh-release@3bb12739c298aeb8a4eeaf626c5b8d85266b0e65  # v2
+        with:
+          tag_name: ext-v${{ steps.bump.outputs.version }}
+          name: "GNOME extension v${{ steps.bump.outputs.version }}"
+          files: dist/*.shell-extension.zip
+          fail_on_unmatched_files: true

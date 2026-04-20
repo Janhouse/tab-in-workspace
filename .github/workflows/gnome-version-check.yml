@@ -1,0 +1,104 @@
+name: GNOME version check
+
+on:
+  schedule:
+    - cron: '0 6 * * 1'
+  workflow_dispatch:
+
+permissions:
+  contents: write
+  pull-requests: write
+
+jobs:
+  check:
+    runs-on: ubuntu-latest
+    outputs:
+      bump_needed: ${{ steps.detect.outputs.bump_needed }}
+      new_version: ${{ steps.detect.outputs.new_version }}
+      release_date: ${{ steps.detect.outputs.release_date }}
+    steps:
+      - uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5  # v4
+      - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020  # v4
+        with:
+          node-version: '20'
+      - id: detect
+        working-directory: gnome-extension
+        run: node scripts/check-gnome-release.mjs
+
+  bump-and-lint:
+    needs: check
+    if: needs.check.outputs.bump_needed == 'true'
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5  # v4
+      - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020  # v4
+        with:
+          node-version: '20'
+
+      - name: Bump metadata.json
+        working-directory: gnome-extension
+        run: node scripts/bump-version.mjs ${{ needs.check.outputs.new_version }}
+
+      - name: Install baseline dev deps
+        working-directory: gnome-extension
+        run: |
+          : > /tmp/lint-output.txt
+          npm ci --legacy-peer-deps --no-audit --no-fund 2>&1 | tee -a /tmp/lint-output.txt
+
+      - name: Upgrade @girs/gnome-shell to target version
+        working-directory: gnome-extension
+        run: |
+          if npm install --save-dev --legacy-peer-deps --no-audit --no-fund \
+               "@girs/gnome-shell@^${{ needs.check.outputs.new_version }}.0.0" \
+               2>&1 | tee -a /tmp/lint-output.txt; then
+            echo "@girs/gnome-shell bumped to ^${{ needs.check.outputs.new_version }}.0.0"
+          else
+            echo "::warning::No @girs/gnome-shell tagged for ${{ needs.check.outputs.new_version }} yet; keeping baseline lock." \
+              | tee -a /tmp/lint-output.txt
+          fi
+
+      - id: lint
+        uses: ./.github/actions/lint-extension
+        continue-on-error: true
+
+      - name: Compose PR body
+        run: |
+          {
+            echo "Automated bump to GNOME ${{ needs.check.outputs.new_version }}."
+            echo ""
+            echo "- Lint outcome: **${{ steps.lint.outcome }}**"
+            echo "- Earliest calendar date for GNOME ${{ needs.check.outputs.new_version }}: ${{ needs.check.outputs.release_date }}"
+            echo "- Source: https://release.gnome.org/${{ needs.check.outputs.new_version }}/"
+            echo ""
+            if [ "${{ steps.lint.outcome }}" != "success" ]; then
+              echo "⚠️ Lint failed. Review the output below before merging; the extension may need code changes for the new GNOME version."
+            else
+              echo "✅ Lint passed. Metadata bump only — should be safe to merge."
+            fi
+            echo ""
+            echo '<details><summary>Lint output</summary>'
+            echo ''
+            echo '```'
+            if [ -s /tmp/lint-output.txt ]; then
+              tail -c 60000 /tmp/lint-output.txt
+            else
+              echo "(no output captured)"
+            fi
+            echo '```'
+            echo '</details>'
+            echo ""
+            echo "---"
+            echo "This PR was opened automatically by \`.github/workflows/gnome-version-check.yml\`."
+          } > /tmp/pr-body.md
+
+      - uses: peter-evans/create-pull-request@22a9089034f40e5a961c8808d113e2c98fb63676  # v7
+        with:
+          branch: bot/gnome-${{ needs.check.outputs.new_version }}-bump
+          title: "chore: GNOME ${{ needs.check.outputs.new_version }} compatibility"
+          body-path: /tmp/pr-body.md
+          labels: |
+            automated
+            gnome-bump
+          commit-message: |
+            chore: GNOME ${{ needs.check.outputs.new_version }} compatibility (automated)
+          delete-branch: true

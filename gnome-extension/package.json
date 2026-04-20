@@ -1,0 +1,18 @@
+{
+  "name": "tab-in-workspace-extension-tooling",
+  "private": true,
+  "type": "module",
+  "description": "Lint and type-check tooling for the GNOME Shell extension. Not shipped to users.",
+  "scripts": {
+    "lint": "eslint extension.js",
+    "typecheck": "tsc --noEmit",
+    "check-gnome": "node scripts/check-gnome-release.mjs",
+    "bump": "node scripts/bump-version.mjs"
+  },
+  "devDependencies": {
+    "@girs/gnome-shell": "^46.0.2",
+    "eslint": "^9.18.0",
+    "globals": "^15.14.0",
+    "typescript": "^5.7.0"
+  }
+}

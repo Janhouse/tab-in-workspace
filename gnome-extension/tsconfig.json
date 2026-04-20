@@ -1,0 +1,21 @@
+{
+  "compilerOptions": {
+    "target": "ES2022",
+    "module": "ES2022",
+    "moduleResolution": "bundler",
+    "allowJs": true,
+    "checkJs": true,
+    "noEmit": true,
+    "strict": false,
+    "noImplicitAny": false,
+    "skipLibCheck": true,
+    "types": ["@girs/gnome-shell/ambient"]
+  },
+  "include": ["extension.js", "types/**/*.d.ts"],
+  "exclude": [
+    "node_modules",
+    "scripts",
+    "tab-in-workspace-service.js",
+    "xdg-browser-proxy.js"
+  ]
+}
