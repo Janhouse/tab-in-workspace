@@ -14,7 +14,8 @@ jobs:
     runs-on: ubuntu-latest
     outputs:
       bump_needed: ${{ steps.detect.outputs.bump_needed }}
-      new_version: ${{ steps.detect.outputs.new_version }}
+      new_versions: ${{ steps.detect.outputs.new_versions }}
+      highest_new: ${{ steps.detect.outputs.highest_new }}
       release_date: ${{ steps.detect.outputs.release_date }}
     steps:
       - uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5  # v4
@@ -35,9 +36,11 @@ jobs:
         with:
           node-version: '20'
 
-      - name: Bump metadata.json
+      - name: Bump metadata.json (adds all missing stable versions)
         working-directory: gnome-extension
-        run: node scripts/bump-version.mjs ${{ needs.check.outputs.new_version }}
+        run: |
+          IFS=',' read -ra VERS <<< "${{ needs.check.outputs.new_versions }}"
+          node scripts/bump-version.mjs "${VERS[@]}"
 
       - name: Install baseline dev deps
         working-directory: gnome-extension
@@ -45,15 +48,15 @@ jobs:
           : > /tmp/lint-output.txt
           npm ci --legacy-peer-deps --no-audit --no-fund 2>&1 | tee -a /tmp/lint-output.txt
 
-      - name: Upgrade @girs/gnome-shell to target version
+      - name: Upgrade @girs/gnome-shell to highest target version
         working-directory: gnome-extension
         run: |
           if npm install --save-dev --legacy-peer-deps --no-audit --no-fund \
-               "@girs/gnome-shell@^${{ needs.check.outputs.new_version }}.0.0" \
+               "@girs/gnome-shell@^${{ needs.check.outputs.highest_new }}.0.0" \
                2>&1 | tee -a /tmp/lint-output.txt; then
-            echo "@girs/gnome-shell bumped to ^${{ needs.check.outputs.new_version }}.0.0"
+            echo "@girs/gnome-shell bumped to ^${{ needs.check.outputs.highest_new }}.0.0"
           else
-            echo "::warning::No @girs/gnome-shell tagged for ${{ needs.check.outputs.new_version }} yet; keeping baseline lock." \
+            echo "::warning::No @girs/gnome-shell tagged for ${{ needs.check.outputs.highest_new }} yet; keeping baseline lock." \
               | tee -a /tmp/lint-output.txt
           fi
 
@@ -63,17 +66,20 @@ jobs:
 
       - name: Compose PR body
         run: |
+          VERSIONS="${{ needs.check.outputs.new_versions }}"
+          HIGHEST="${{ needs.check.outputs.highest_new }}"
           {
-            echo "Automated bump to GNOME ${{ needs.check.outputs.new_version }}."
+            echo "Automated compatibility bump adding GNOME shell-version(s): **${VERSIONS}**."
             echo ""
             echo "- Lint outcome: **${{ steps.lint.outcome }}**"
-            echo "- Earliest calendar date for GNOME ${{ needs.check.outputs.new_version }}: ${{ needs.check.outputs.release_date }}"
-            echo "- Source: https://release.gnome.org/${{ needs.check.outputs.new_version }}/"
+            echo "- Highest target: GNOME ${HIGHEST} (stable release: ${{ needs.check.outputs.release_date }})"
+            echo "- API types checked against: \`@girs/gnome-shell@^${HIGHEST}.0.0\`"
+            echo "- Release notes: https://release.gnome.org/${HIGHEST}/"
             echo ""
             if [ "${{ steps.lint.outcome }}" != "success" ]; then
-              echo "⚠️ Lint failed. Review the output below before merging; the extension may need code changes for the new GNOME version."
+              echo "⚠️ Lint failed. Review the output below before merging; the extension may need code changes for the new GNOME version(s)."
             else
-              echo "✅ Lint passed. Metadata bump only — should be safe to merge."
+              echo "✅ Lint passed. Metadata-only bump — should be safe to merge."
             fi
             echo ""
             echo '<details><summary>Lint output</summary>'
@@ -93,12 +99,12 @@ jobs:
 
       - uses: peter-evans/create-pull-request@22a9089034f40e5a961c8808d113e2c98fb63676  # v7
         with:
-          branch: bot/gnome-${{ needs.check.outputs.new_version }}-bump
-          title: "chore: GNOME ${{ needs.check.outputs.new_version }} compatibility"
+          branch: bot/gnome-${{ needs.check.outputs.highest_new }}-bump
+          title: "chore: GNOME ${{ needs.check.outputs.new_versions }} compatibility"
           body-path: /tmp/pr-body.md
           labels: |
             automated
             gnome-bump
           commit-message: |
-            chore: GNOME ${{ needs.check.outputs.new_version }} compatibility (automated)
+            chore: GNOME ${{ needs.check.outputs.new_versions }} compatibility (automated)
           delete-branch: true

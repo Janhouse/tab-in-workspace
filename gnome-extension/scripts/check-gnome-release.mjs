@@ -1,11 +1,18 @@
 #!/usr/bin/env node
-// Detects the highest stable GNOME Shell major version from
-// release.gnome.org's ICS calendar and compares with metadata.json.
+// Detects the highest STABLE GNOME Shell major version by parsing the
+// release.gnome.org ICS calendar, and compares with metadata.json.
+//
+// A version N is considered stable iff any of:
+//   - An event whose summary matches "GNOME N.0 ... release" has DTSTART <= today.
+//   - Any event referencing "GNOME N" or "GNOME N.m" has DTSTART <= today
+//     (implies maintenance or already-released; upcoming versions only show
+//     future alpha/beta/rc events).
 //
 // Outputs (when run in GitHub Actions):
 //   bump_needed=true|false
-//   new_version=<int>       (only if bump_needed)
-//   release_date=<ISO date> (only if bump_needed)
+//   new_versions=<comma-separated list>  (only if bump_needed)
+//   highest_new=<int>                    (only if bump_needed; the highest new version)
+//   release_date=<ISO date>              (only if bump_needed; the .0 date of highest_new)
 //
 // Exit code is always 0 so the workflow can read outputs even when no bump.
 
@@ -32,8 +39,6 @@ function writeReleaseDate(date) {
 }
 
 function parseIcs(text) {
-    // Unfold folded lines per RFC 5545: any line starting with space/tab
-    // continues the previous line.
     const unfolded = text.replace(/\r?\n[ \t]/g, '');
     const events = [];
     let current = null;
@@ -56,32 +61,57 @@ function parseIcs(text) {
 }
 
 function parseIcsDate(value) {
-    // YYYYMMDD or YYYYMMDDTHHMMSSZ
     const m = value.match(/^(\d{4})(\d{2})(\d{2})/);
     if (!m) return null;
     return `${m[1]}-${m[2]}-${m[3]}`;
 }
 
 /**
- * Extract all GNOME major-release versions mentioned in event summaries,
- * along with the earliest date each appears.
- * Looks for patterns like "GNOME 50", "GNOME 50.0", "GNOME 50.rc", "GNOME 50.beta".
+ * Aggregate per-version info:
+ *   - earliestEvent: earliest date any event for this version appears
+ *   - stableReleaseDate: date of the ".0 ... release" event, if present
+ *   - hasPastEvent: true if any event has date <= today
  */
-function extractGnomeVersions(events) {
+function collectVersionInfo(events) {
+    const today = new Date().toISOString().slice(0, 10);
     const byVersion = new Map();
+
     for (const ev of events) {
         const summary = ev.SUMMARY || '';
-        const match = summary.match(/GNOME\s+(\d+)\b/i);
+        const match = summary.match(/GNOME\s+(\d+)(?:\.(\d+|alpha|beta|rc))?\b/i);
         if (!match) continue;
         const version = parseInt(match[1], 10);
+        const suffix = match[2];
         const date = parseIcsDate(ev.DTSTART || '');
         if (!date) continue;
-        const existing = byVersion.get(version);
-        if (!existing || date < existing.earliest) {
-            byVersion.set(version, {earliest: date, summary});
+
+        let info = byVersion.get(version);
+        if (!info) {
+            info = {
+                earliestEvent: date,
+                stableReleaseDate: null,
+                hasPastEvent: false,
+            };
+            byVersion.set(version, info);
+        }
+        if (date < info.earliestEvent) info.earliestEvent = date;
+        if (date <= today) info.hasPastEvent = true;
+
+        if (suffix === '0' && /\brelease\b/i.test(summary)) {
+            if (!info.stableReleaseDate || date < info.stableReleaseDate) {
+                info.stableReleaseDate = date;
+            }
         }
     }
     return byVersion;
+}
+
+function isStable(info, today) {
+    if (info.stableReleaseDate && info.stableReleaseDate <= today) return true;
+    // Fallback: if any event for this version is in the past, the version
+    // is already released (older stables only appear via maintenance events
+    // after their .0 release falls out of the calendar window).
+    return info.hasPastEvent;
 }
 
 async function main() {
@@ -93,9 +123,9 @@ async function main() {
     }
     const ics = await res.text();
     const events = parseIcs(ics);
-    const versions = extractGnomeVersions(events);
+    const byVersion = collectVersionInfo(events);
 
-    if (versions.size === 0) {
+    if (byVersion.size === 0) {
         console.error('No GNOME version events found in calendar.');
         emit('bump_needed', 'false');
         return;
@@ -106,24 +136,44 @@ async function main() {
         ...(metadata['shell-version'] || []).map(v => parseInt(v, 10)).filter(v => !isNaN(v)),
     );
 
-    const calendarMax = Math.max(...versions.keys());
-    console.log(`Current metadata shell-version max: ${currentMax}`);
-    console.log(`Highest version in GNOME calendar:  ${calendarMax}`);
+    const today = new Date().toISOString().slice(0, 10);
+    const stable = [...byVersion.entries()]
+        .filter(([, info]) => isStable(info, today))
+        .map(([v]) => v)
+        .sort((a, b) => a - b);
+    const upcoming = [...byVersion.entries()]
+        .filter(([, info]) => !isStable(info, today))
+        .map(([v]) => v)
+        .sort((a, b) => a - b);
 
-    if (calendarMax <= currentMax) {
+    console.log(`Current metadata shell-version max: ${currentMax}`);
+    console.log(`Stable GNOME versions seen in calendar:  [${stable.join(', ')}]`);
+    console.log(`Upcoming (not yet released):             [${upcoming.join(', ')}]`);
+
+    if (stable.length === 0) {
+        console.error('No stable GNOME versions detected; refusing to bump.');
         emit('bump_needed', 'false');
         return;
     }
 
-    // Bump one version at a time. If calendarMax > currentMax+1, GNOME
-    // (currentMax+1) is already in the past and likely absent from the
-    // calendar, so fall back to a placeholder date.
-    const target = currentMax + 1;
-    const info = versions.get(target);
-    const releaseDate = info ? info.earliest : '(already released; not in upcoming calendar)';
+    const targetMax = Math.max(...stable);
+    if (targetMax <= currentMax) {
+        console.log('Up to date with latest stable GNOME.');
+        emit('bump_needed', 'false');
+        return;
+    }
+
+    // Include every missing version from currentMax+1 through targetMax.
+    const newVersions = [];
+    for (let v = currentMax + 1; v <= targetMax; v++) newVersions.push(v);
+
+    const targetInfo = byVersion.get(targetMax);
+    const releaseDate =
+        targetInfo?.stableReleaseDate || targetInfo?.earliestEvent || '(unknown)';
 
     emit('bump_needed', 'true');
-    emit('new_version', String(target));
+    emit('new_versions', newVersions.join(','));
+    emit('highest_new', String(targetMax));
     emit('release_date', releaseDate);
     writeReleaseDate(releaseDate);
 }
