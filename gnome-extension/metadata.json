@@ -5,8 +5,9 @@
   "shell-version": [
     "45",
     "46",
-    "47"
+    "47",
+    "48"
   ],
-  "version": 0.7,
+  "version": 0.8,
   "url": "https://github.com/janhouse/tab-in-workspace"
 }
